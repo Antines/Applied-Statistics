@@ -1,0 +1,121 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```         
+                                        1. EDA
+```
+
+```{r message=TRUE, warning=FALSE, include=FALSE}
+library(vegan)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(broom)
+library(ggmap)
+theme_set(theme_bw(base_size = 12))
+```
+
+```{r}
+data(BCI)
+data(BCI.env)
+str(BCI)
+```
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+anyNA(BCI)
+summary(cor(BCI))
+```
+
+```{r}
+# Plotting species abundance and richness
+hist(rowSums(BCI), main = "Species Abundance Distribution", xlab = "Abundance")
+barplot(colSums(BCI > 0), main = "Species Richness", xlab = "Site", ylab = "Number of Species")
+```
+
+```{r}
+# Principal Component Analysis (PCA)
+pca_result <- prcomp(BCI, scale. = TRUE)
+summary(pca_result)
+plot(pca_result, type = "l")
+
+# Scatterplot of the first two principal components
+pca_df <- as.data.frame(pca_result$x[,1:2])
+plot(pca_df, pch = 16, col = "blue", main = "PCA of BCI Dataset", xlab = "PC1", ylab = "PC2")
+```
+
+```         
+                                 2. ORDINATION
+```
+
+```{r}
+env <- BCI.env
+ord <- metaMDS(BCI, dist = "bray")
+```
+
+```         
+                                 3. VISUALIZATION
+```
+
+```{r}
+pal_col <- c("red", "green", "steelblue", "orange", "black")
+pal_sh <- c(1, 2)
+plot(ord)
+
+ordiplot(ord, type = "n")
+points(ord, col = pal_col[as.factor(env$Habitat)], pch = pal_sh[as.factor(env$Stream)])
+
+  legend("topleft", bty = "n",
+       title = "Intertidal levels: ",
+       legend = levels(env$Habitat), col = pal_col, pch = pal_sh)
+```
+
+```{r}
+ef <- envfit(ord, env[, c("EnvHet", "UTM.EW", "UTM.NS")])
+ef$vectors
+ordiplot(ord, type = "n")
+points(ord, col = pal_col[as.factor(env$Habitat)], pch = pal_sh[as.factor(env$Stream)])
+plot(ef)
+```
+
+```{r}
+par(mfrow = c(1, 3))
+os_Hab <- ordisurf(ord, env$EnvHet, method = "REML")
+os_Hab <- ordisurf(ord, env$UTM.EW, method = "REML")
+os_Hab <- ordisurf(ord, env$UTM.NS, method = "REML")
+```
+
+```{r}
+pal_col <- c("red", "green", "steelblue", "orange", "black")
+pal_sh <- c(1, 2)
+
+plot(ord$points, col=pal_col[BCI.env$Habitat], pch=pal_sh[BCI.env$Stream], cex = 1.2)
+ordispider(ord, groups = BCI.env$Habitat, label = T)
+txt <- c("No stream","Stream")
+legend("topright", txt, pch=pal_sh, col=pal_col, cex = 1, bty = "y" )
+```
+
+```{r}
+fit <- adonis2(BCI ~ Habitat + Stream * EnvHet * UTM.EW * UTM.NS, data = BCI.env, permutations = 23414, method = "bray")
+fit
+```
+
+```         
+According to PERMANOVA results, significant variables are UTM.NS\|EW, UTM.EW:UTM.NS and Habitat, less significant is EnvHet. Results are partly consistent with envifit() outout - only UTM.EW env variable
+```
+
+```{r}
+dist <- vegdist(BCI)
+anova(betadisper(dist, BCI.env$Habitat))
+anova(betadisper(dist, BCI.env$Stream))
+anova(betadisper(dist, BCI.env$EnvHet))
+anova(betadisper(dist, BCI.env$UTM.NS))
+anova(betadisper(dist, BCI.env$UTM.EW))
+```
+
+```         
+Where p-value is lower than 0.05 -\> variations are differ not by chance (violation of assumption of multivariate dispersion) -\> results should be treated cautiously 
+In conclusion: UTM.NS and UTM.EW features - are most significant factors (I cant believe it!)
+```

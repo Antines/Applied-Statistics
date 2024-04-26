@@ -1,0 +1,88 @@
+```{r}
+library(dplyr)
+library(vegan)
+library(ggplot2)
+library(gridExtra)
+library(ape)
+library(dendextend)
+library(pvclust)
+library(tibble)
+```
+
+```{r}
+require(golubEsets)
+data("Golub_Merge")
+golub <- data.frame(Golub_Merge)[1:7129]
+rownames(golub) <- paste(Golub_Merge$ALL.AML, rownames(golub), sep = "_")
+```
+
+```{r}
+colMeans(golub) %>% as_tibble() %>% arrange(value)%>%
+  ggplot(aes(x=value))+geom_density()+xlab(label = "Mean_of_raw_data")
+```
+```
+                          The plot slightly scewed to the right, try to normalaize 
+```
+
+```{r}
+gl_log <-  decostand(golub, method = "log", MARGIN = 2)
+colMeans(gl_log) %>% as_tibble() %>% arrange(value)%>% ggplot(aes(x=value))+geom_density()+xlab(label = "Mean_of_log_data")
+```
+```
+Now it looks weird, as cant log cant be applied to negative values, however log noramlization showed best results in comparison with quantile normalization, hence it should be retained for clustering purpose
+```
+
+```{r}
+euc <- vegdist(gl_log, method = "euclidean")
+man <- vegdist(gl_log, method = "manhattan")
+canb <- vegdist(gl_log, method = "canberra")
+
+disatances <- data.frame(Log = as.numeric(euc), Man = as.numeric(man), Canb = as.numeric(canb))
+Pl_hist <- ggplot(disatances) + geom_density()
+
+Pl_log <- Pl_hist + aes(x = Log) + labs(x = "euclidean")
+Pl_man <- Pl_hist + aes(x = man) + labs(x = "manhattan")
+Pl_canb <- Pl_hist + aes(x = canb) + labs(x = "canberra")
+grid.arrange(Pl_log, Pl_man, Pl_canb)
+```
+
+```{r}
+clustering <- function(dist) {
+  dists <- c("Euclidean", "Manhattan", "Canberra")
+  methods <- c("single", "complete", "average", "ward.D2")
+  for (m in methods) {
+    hclust <- hclust(dist, method = m)
+    corr <- cor(dist, as.dist(cophenetic(hclust)))
+    cat("\nClustering Method:", m, "\n")
+    print(corr)
+  }
+}
+
+clustering(euc)
+clustering(man)
+clustering(canb)
+
+single <- hclust(man, method = "single")
+ph_avg <- as.phylo(single )
+plot(ph_avg, type = "phylogram", )
+axisPhylo()
+
+avg <- hclust(euc, method = "average")
+ph_avg <- as.phylo(avg)
+plot(ph_avg, type = "phylogram")
+axisPhylo()
+```
+```
+Manhattan distance with average clustering showed best results according to the cor test, nevertheless a dendrograms (best cluster models from eucleian and manhattan distances) represent too many clusters, no prominent divisioun by ALL and AML features 
+```
+
+```{r}
+plot(pvclust(t(golub), method.hclust = "average", nboot = 50, 
+             method.dist = "manhattan", parallel = TRUE, iseed = 42))
+```
+```
+According to the bootstrap results, best clustering model divided with moderate accuracy AML and ALL samples(small portion of AML was clustered together with ALL, probably due to biological or/and technical confounding factors)
+Overall acute lymphoblastic leukemia (ALL) expression profile is significnatly differ from acute myeloid leukemia (AML) state, however both states in some cases overlaps in gene expresion probably due to progression or type of leukemia factors
+```
+
+

@@ -1,0 +1,69 @@
+```{r}
+library(vegan)
+library(ggvegan)
+library(readxl)
+```
+
+```{r}
+df <- read_excel(path = "C:\\Users\\Derin\\Desktop\\Sleepy lizard.xlsx")
+```
+
+```{r}
+df_mod <- df[df$`Landscape ID` != 1, ]
+blood <- df[, c(9, 13:18)]
+summary(blood)
+```
+
+```{r}
+boxplot(blood)
+lapply(blood, function(x) shapiro.test(x)$p.value)
+bartlett.test(blood)
+```
+
+```{r}
+blood_log <- as.data.frame(scale(log(blood+1), scale = FALSE))
+blood_log_mod <- as.data.frame(scale(log(df_mod[, c(9, 13:18)] + 1), scale = FALSE))
+boxplot(blood_log)
+```
+
+```{r}
+nmds <- metaMDS(blood_log, distance = "euclidean")
+nmds_mod <- metaMDS(blood_log_mod, distance = "euclidean")
+plot(nmds)
+plot(nmds_mod)
+stressplot(nmds)
+```
+
+```{r}
+plot(nmds, display = "sites", type = "n")
+points(nmds, display = "sites", col = df$Treatment)  
+```
+
+```{r}
+plot(nmds_mod, display = "sites", type = "n")
+points(nmds_mod, display = "sites", col = df_mod$Habitat) 
+```
+
+```{r}
+plot(nmds_mod, display = "sites", type = "n")
+points(nmds_mod, display = "sites", col = df_mod$Connectivity)   
+```
+
+```{r}
+adonis2(blood_log ~ Treatment, data = df, method = "euclidian")
+adonis2(blood_log_mod ~ Habitat, data = df_mod,  method = "euclidian")
+adonis2(blood_log_mod ~ Connectivity, data = df_mod, method = "euclidian")
+adonis2(blood_log_mod ~ Habitat * Connectivity, data = df_mod, method = "euclidian")
+```
+
+```         
+According to the ordination results (NMDS was used instead as all blood metrics except for LBSI distrubited non-normally, and homogeneity of variances yielded low p-value, indicating that the assumption of homogeneity of variances across groups is violated, which is not a great job for PCA
+
+NMDS (well-fitted, btw) revealed significant dissimilarities in lizard blood composition between unmodified and heavily modified landscapes. However, differences in habitats and degrees of connectivity in heavily modified landscapes did not yield significant results.
+
+NMDS results are consistent with permanova analisys: 
+Blood compostion ~ Landscape - *** significant
+Blood compostion ~ Habitat - not significant
+Blood compostion ~ Connectivity - not significant
+Blood compostion ~ Habitat * Connectivity - not significant
+```

@@ -17,22 +17,28 @@ for (sheet in sheets) {
 ```{r}
 ff <- dfs$fauna[, -1]
 env <- dfs$env[,-1]
+boxplot(env[,-ncol(env)])
 ```
 
 ```
-In both env and flora & fauna datasets the samples (river) are correspond in order to each other, will be ommited for cca
+In both env and flora & fauna datasets the samples (river) are correspond in order to each other, will be ommited for cca, it is better to center the data
 ```
 
 ```{r}
-env_numeric <- sapply(env[,-ncol(env)], as.numeric, na.rm = TRUE)
-env_c <- as.data.frame(na.aggregate(env_numeric, FUN = mean))
-env_c$GrazingRank <- dfs$env$GrazingRank
+env_c <- as.data.frame(scale(log(env[,-ncol(env)]+1), scale = FALSE))
+boxplot(env_c)
+```
 
-grz_cca <- cca(ff ~ ., data = env_c[, -1])
+```{r}
+env_numeric <- sapply(env_c[,-ncol(env_c)], as.numeric, na.rm = TRUE)
+env_comp <- as.data.frame(na.aggregate(env_numeric, FUN = mean))
+env_comp$GrazingRank <- dfs$env$GrazingRank
+
+grz_cca <- cca(ff ~ ., data = env_comp)
 ```
 
 ```
-Substract all NA in env observation by mean, get GrazingRank metric back to env_c -> perform cca on all env metrics
+Substract all NA in env observation by mean, get GrazingRank metric back to env_comp -> perform cca on all env metrics
 ```
 
 ```{r}
@@ -66,7 +72,7 @@ anova(grz_cca, by = "term")
 ```
 
 ```
-In summary anova tests showed significant factors Regulation and Average Turbidity as the marginal effects of each environmental variable individually.
+In summary anova tests showed significant factors: Regulation and Conductivity as the marginal effects of each environmental variable individually.
 However, results from plots suggested some multicollinearity, so results from  combinations of multiple env variables migh be reliable. Hence Regulation, Temperature, Conductivity and Average Turbidity are significant factors, which affect flora and fauna compotistions in/beside the reivers
 ```
 

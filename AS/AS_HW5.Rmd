@@ -1,0 +1,104 @@
+```{r include=FALSE}
+#remotes::install_github("adeverse/ade4")
+#install.packages("car")
+library(ade4)
+library(car)
+library(dplyr)
+library(corrr)
+library(vegan)
+```
+
+```
+                                                              EDA
+```
+```{r}
+data("doubs", package = "ade4")
+spec <- doubs$fish
+env <- doubs$env
+env_coord <- cbind(env, doubs$xy)
+```
+
+```{r}
+is.na(env_coord)
+boxplot(spec)
+pairs(env_coord)
+```
+```
+No NA detected
+No major species abundance deviation, so there is no need to standatrize
+From the 1st there is some env features which is highly correlated, better to check using correaltion matrix
+```
+
+```{r}
+hcor <- function(data, threshold = 0.9) {
+  corr_matrix <- correlate(data, use = "pairwise.complete.obs")
+  
+  strong_pairs <- corr_matrix %>%
+    stretch() %>%
+    filter(abs(r) > threshold, !is.na(r)) %>%
+    arrange(desc(abs(r)))
+  return(strong_pairs)
+}
+hcor(env)
+```
+```
+Here is strongly associated pairs:
+Phosphates (pho) | Ammonia nitroges (amm) - no wonder, since altogether they tend to form stable molecule condition
+distance from the source (dfs) | altitude (alt) | stream flow (flo) - correlated geographical features
+```
+
+```
+                                                            RDA
+```
+```{r}
+vif(lm(spec$Satr ~ ., data = env))
+vif(lm(spec$Satr ~ . -dfs -amm -bdo, data = env))
+```
+```
+Although highly correalted (from computational  chemical and geographical perspectives) were omiited, cant really exclude alt (which exceeds the conventinal variance-inflation threshold, since it is only geographical feature, which potentially influence the abundance of species)
+```
+
+```{r}
+bf_rda <- rda(spec ~ . -dfs -amm -bdo, data = env_coord)
+summary(bf_rda) 
+
+scores(bf_rda, display = "species", choices = 1:5)
+spenvcor(bf_rda)
+
+anova(bf_rda, by = "mar", permutations = 9999)
+```
+```
+0.7665% of variance (changes) in env features influence abundance, however there is no significant factors except for pho, therefore null -> full model is requred for unbiesed results
+```
+
+```{r}
+m1 <- rda(spec ~ . -dfs -amm -bdo, data = env_coord)
+m0 <- rda(spec ~ 1, data = env_coord)
+m <- ordistep(m0, scope = formula(m1), permutations = 9999)
+m$anova
+```
+```
+Now 3 chemical factors and 1 geographical features are significant, it is necessary to remove the influence of geographic location in order to draw a correct conclusion
+```
+
+```
+                                                        Private RDA
+```
+```{r}
+bf_prda_1 <- rda(spec ~ flo + Condition(x + y), data = env_coord)
+anova(bf_prda_1, permutations = 9999)
+summary(bf_prda_1)
+
+bf_prda_2 <- rda(spec ~ x + y + Condition(flo), data = env_coord)
+anova(bf_prda_2, permutations = 9999)
+summary(bf_prda_2)
+```
+
+```
+According to the results geographical features explain ~ 6/16% (flo and location, accordingly) solely
+In summary pho, nit and oxy are most significant factors which explain greater proprotion of variance in abundances of species than geographical ones (predominantly location rather than flo)
+```
+
+
+
+
